@@ -131,7 +131,7 @@ async def main():
             await page.wait_for_timeout(8000)
             await page.get_by_role("treeitem", name="SOC_Received", exact=True).click()
             await page.wait_for_timeout(8000)
-            await page.locator('xpath=/html[1]/body[1]/div[3]/div[2]/div[1]/div[2]/form[1]/div[9]/div[1]/span[1]/span[1]/div[1]/div[1]/div[1]/input[1]').click()
+            await page.locator(".ssc-dialog-body > .ssc-form > div:nth-child(9) > .ssc-form-item-content").click()
             await page.wait_for_timeout(8000)
             await page.get_by_role('textbox', name='procurar por').fill('SoC_SP_Cravinhos')
             await page.wait_for_timeout(8000)
