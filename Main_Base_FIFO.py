@@ -73,6 +73,10 @@ def update_google_sheet_with_dataframe(df_to_upload):
         
     try:
         print("Enviando dados processados para o Google Sheets...")
+
+        # Limpar valores incompatíveis
+        df_to_upload = df_to_upload.fillna("").astype(str)
+
         scope = [
             "https://spreadsheets.google.com/feeds",
             'https://www.googleapis.com/auth/spreadsheets',
@@ -82,7 +86,12 @@ def update_google_sheet_with_dataframe(df_to_upload):
         client = gspread.authorize(creds)
         
         planilha = client.open("FIFO INBOUND SP5")
-        aba = planilha.worksheet("Base")
+
+        # Verifica se a aba existe, senão cria
+        try:
+            aba = planilha.worksheet("Base")
+        except gspread.exceptions.WorksheetNotFound:
+            aba = planilha.add_worksheet(title="Base", rows="1000", cols="20")
         
         aba.clear()
         set_with_dataframe(aba, df_to_upload)
@@ -91,12 +100,12 @@ def update_google_sheet_with_dataframe(df_to_upload):
         time.sleep(5)
 
     except Exception as e:
-        print(f"❌ Erro ao enviar para o Google Sheets: {e}")
+        import traceback
+        print(f"❌ Erro ao enviar para o Google Sheets:\n{traceback.format_exc()}")
 
 async def main():
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     async with async_playwright() as p:
-        # No GitHub Actions usar headless=True
         browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"])
         context = await browser.new_context(accept_downloads=True, viewport={"width": 1920, "height": 1080})
         page = await context.new_page()
