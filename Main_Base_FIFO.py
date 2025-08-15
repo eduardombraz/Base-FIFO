@@ -8,7 +8,7 @@ import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import zipfile
-from gspread_dataframe import set_with_dataframe # Import para upload de DataFrame
+from gspread_dataframe import set_with_dataframe  # Import para upload de DataFrame
 
 DOWNLOAD_DIR = "/tmp/shopee_automation"
 
@@ -30,13 +30,6 @@ def rename_downloaded_file(download_dir, download_path):
 def unzip_and_process_data(zip_path, extract_to_dir):
     """
     Unzips a file, merges all CSVs, and processes the data according to the specified logic.
-    
-    Args:
-        zip_path (str): The full path to the .zip file.
-        extract_to_dir (str): The directory to extract files to.
-
-    Returns:
-        pd.DataFrame: A fully processed pandas DataFrame, or None if an error occurs.
     """
     try:
         unzip_folder = os.path.join(extract_to_dir, "extracted_files")
@@ -57,24 +50,20 @@ def unzip_and_process_data(zip_path, extract_to_dir):
         all_dfs = [pd.read_csv(file, encoding='utf-8') for file in csv_files]
         df_final = pd.concat(all_dfs, ignore_index=True)
 
-        # === INÍCIO DA LÓGICA DE PROCESSAMENTO INTEGRADA ===
         print("Iniciando processamento dos dados...")
-        
-        # 1. Selecionar colunas desejadas pela posição
-        indices_para_manter = [0, 14, 39, 40, 48,]
-               
-        
+
+        # Filtrar colunas desejadas pela posição
+        indices_para_manter = [0, 14, 39, 40, 48]
+        df_final = df_final.iloc[:, indices_para_manter]
+
         print("Processamento de dados concluído com sucesso.")
-        # === FIM DA LÓGICA DE PROCESSAMENTO ===
         
-        shutil.rmtree(unzip_folder) # Limpa a pasta com os arquivos extraídos
-        
-        return resultado
-        
+        shutil.rmtree(unzip_folder)  # Limpa pasta temporária
+
+        return df_final
     except Exception as e:
         print(f"Erro ao descompactar ou processar os dados: {e}")
         return None
-
 
 def update_google_sheet_with_dataframe(df_to_upload):
     """Updates a Google Sheet with the content of a pandas DataFrame."""
@@ -84,17 +73,19 @@ def update_google_sheet_with_dataframe(df_to_upload):
         
     try:
         print("Enviando dados processados para o Google Sheets...")
-        scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets', "https://www.googleapis.com/auth/drive"]
-        # ATENÇÃO: Use o caminho correto para seu arquivo de credenciais JSON
+        scope = [
+            "https://spreadsheets.google.com/feeds",
+            'https://www.googleapis.com/auth/spreadsheets',
+            "https://www.googleapis.com/auth/drive"
+        ]
         creds = ServiceAccountCredentials.from_json_keyfile_name("hxh.json", scope)
         client = gspread.authorize(creds)
         
-        # ATENÇÃO: Use o nome correto da sua planilha e da aba
         planilha = client.open("FIFO INBOUND SP5")
         aba = planilha.worksheet("Base")
         
-        aba.clear() # Limpa a aba antes de inserir novos dados
-        set_with_dataframe(aba, df_to_upload) # Usa a função para enviar o DataFrame
+        aba.clear()
+        set_with_dataframe(aba, df_to_upload)
         
         print("✅ Dados enviados para o Google Sheets com sucesso!")
         time.sleep(5)
@@ -105,7 +96,8 @@ def update_google_sheet_with_dataframe(df_to_upload):
 async def main():
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False, args=["--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"])
+        # No GitHub Actions usar headless=True
+        browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"])
         context = await browser.new_context(accept_downloads=True, viewport={"width": 1920, "height": 1080})
         page = await context.new_page()
         try:
@@ -122,7 +114,7 @@ async def main():
                 print("Nenhum pop-up de diálogo foi encontrado.")
                 await page.keyboard.press("Escape")
             
-              # NAVEGAÇÃO E DOWNLOAD
+            # NAVEGAÇÃO E DOWNLOAD
             await page.goto("https://spx.shopee.com.br/#/orderTracking")
             await page.wait_for_timeout(8000)
             await page.get_by_role('button', name='Exportar').click()
@@ -149,14 +141,11 @@ async def main():
             await download.save_as(download_path)
             print(f"Download concluído: {download_path}")
 
-            # --- FLUXO DE PROCESSAMENTO E UPLOAD ---
+            # --- PROCESSA E ENVIA PARA GOOGLE SHEETS ---
             renamed_zip_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)
             
             if renamed_zip_path:
-                # 1. Descompacta e processa os dados em memória, retornando um DataFrame
                 final_dataframe = unzip_and_process_data(renamed_zip_path, DOWNLOAD_DIR)
-                
-                # 2. Faz o upload do DataFrame final para o Google Sheets
                 update_google_sheet_with_dataframe(final_dataframe)
 
         except Exception as e:
