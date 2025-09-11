@@ -143,12 +143,13 @@ async def main():
             
             # DOWNLOAD
             async with page.expect_download() as download_info:
-                await page.get_by_role("button", name="Baixar").first.click()
-            
+                #await page.wait_for_selector('xpath=/html/body/span/div/div[1]/div/span/div/div[2]/div[2]/div[1]/div/div[1]/div/div[1]/div[2]/button', timeout=30000)
+                #await page.locator('xpath=/html[1]/body[1]/span[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/button[1]/span[1]').click()
+                await page.get_by_role("button", name="Baixar").nth(0).click()
             download = await download_info.value
             download_path = os.path.join(DOWNLOAD_DIR, download.suggested_filename)
             await download.save_as(download_path)
-            print(f"Download concluído: {download_path}")
+            new_file_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)
 
             # --- PROCESSA E ENVIA PARA GOOGLE SHEETS ---
             renamed_zip_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)
