@@ -144,7 +144,6 @@ async def main():
             # DOWNLOAD
             async with page.expect_download() as download_info:
                 await page.get_by_role("button", name="Baixar").first.click()
-            
             download = await download_info.value
             download_path = os.path.join(DOWNLOAD_DIR, download.suggested_filename)
             await download.save_as(download_path)
