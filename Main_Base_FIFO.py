@@ -144,10 +144,12 @@ async def main():
             # DOWNLOAD
             async with page.expect_download() as download_info:
                 await page.get_by_role("button", name="Baixar").first.click()
+            
             download = await download_info.value
             download_path = os.path.join(DOWNLOAD_DIR, download.suggested_filename)
             await download.save_as(download_path)
             print(f"Download concluído: {download_path}")
+
 
             # --- PROCESSA E ENVIA PARA GOOGLE SHEETS ---
             renamed_zip_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)
