@@ -144,15 +144,16 @@ async def main():
             # DOWNLOAD
             # Espera o botão aparecer visível
             async with page.expect_download() as download_info:
-            await page.locator("button:has-text('Baixar')").First.click()
-
-            download = await download_info.value
-            
+                await page.get_by_role("button", name="Baixar").first.click()
             download = await download_info.value
             download_path = os.path.join(DOWNLOAD_DIR, download.suggested_filename)
             await download.save_as(download_path)
             print(f"Download concluído: {download_path}")
 
+            renamed_zip_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)
+            if renamed_zip_path:
+                final_dataframe = unzip_and_process_data(renamed_zip_path, DOWNLOAD_DIR)
+                update_google_sheet_with_dataframe(final_dataframe)
 
             # --- PROCESSA E ENVIA PARA GOOGLE SHEETS ---
             renamed_zip_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)
