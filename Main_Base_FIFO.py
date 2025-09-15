@@ -1,5 +1,6 @@
 import asyncio
 from playwright.async_api import async_playwright
+import time
 import datetime
 import os
 import shutil
@@ -27,7 +28,9 @@ def rename_downloaded_file(download_dir, download_path):
         return None
 
 def unzip_and_process_data(zip_path, extract_to_dir):
-    """Unzips a file, merges all CSVs, and processes the data."""
+    """
+    Unzips a file, merges all CSVs, and processes the data according to the specified logic.
+    """
     try:
         unzip_folder = os.path.join(extract_to_dir, "extracted_files")
         os.makedirs(unzip_folder, exist_ok=True)
@@ -37,6 +40,7 @@ def unzip_and_process_data(zip_path, extract_to_dir):
         print(f"Arquivo '{os.path.basename(zip_path)}' descompactado.")
 
         csv_files = [os.path.join(unzip_folder, f) for f in os.listdir(unzip_folder) if f.lower().endswith('.csv')]
+        
         if not csv_files:
             print("Nenhum arquivo CSV encontrado no ZIP.")
             shutil.rmtree(unzip_folder)
@@ -48,33 +52,29 @@ def unzip_and_process_data(zip_path, extract_to_dir):
 
         print("Iniciando processamento dos dados...")
 
+        # Filtrar colunas desejadas pela posição
         indices_para_manter = [0, 14, 39, 40, 48]
-        max_cols = df_final.shape[1]
-        indices_validos = [i for i in indices_para_manter if i < max_cols]
-
-        if indices_validos:
-            df_final = df_final.iloc[:, indices_validos]
-        else:
-            print("⚠ Nenhuma das colunas esperadas foi encontrada.")
-            return None
+        df_final = df_final.iloc[:, indices_para_manter]
 
         print("Processamento de dados concluído com sucesso.")
-        shutil.rmtree(unzip_folder)
+        
+        shutil.rmtree(unzip_folder)  # Limpa pasta temporária
 
         return df_final
     except Exception as e:
         print(f"Erro ao descompactar ou processar os dados: {e}")
         return None
 
-async def update_google_sheet_with_dataframe(df_to_upload):
+def update_google_sheet_with_dataframe(df_to_upload):
     """Updates a Google Sheet with the content of a pandas DataFrame."""
     if df_to_upload is None or df_to_upload.empty:
         print("Nenhum dado para enviar ao Google Sheets.")
         return
-
+        
     try:
         print("Enviando dados processados para o Google Sheets...")
 
+        # Limpar valores incompatíveis
         df_to_upload = df_to_upload.fillna("").astype(str)
 
         scope = [
@@ -84,19 +84,20 @@ async def update_google_sheet_with_dataframe(df_to_upload):
         ]
         creds = ServiceAccountCredentials.from_json_keyfile_name("hxh.json", scope)
         client = gspread.authorize(creds)
-
+        
         planilha = client.open("FIFO INBOUND SP5")
 
+        # Verifica se a aba existe, senão cria
         try:
             aba = planilha.worksheet("Base")
         except gspread.exceptions.WorksheetNotFound:
             aba = planilha.add_worksheet(title="Base", rows="1000", cols="20")
-
+        
         aba.clear()
         set_with_dataframe(aba, df_to_upload)
-
+        
         print("✅ Dados enviados para o Google Sheets com sucesso!")
-        await asyncio.sleep(5)
+        time.sleep(5)
 
     except Exception as e:
         import traceback
@@ -105,74 +106,68 @@ async def update_google_sheet_with_dataframe(df_to_upload):
 async def main():
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"]
-        )
+        browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"])
         context = await browser.new_context(accept_downloads=True, viewport={"width": 1920, "height": 1080})
         page = await context.new_page()
         try:
             # LOGIN
             await page.goto("https://spx.shopee.com.br/")
-            await page.wait_for_selector('xpath=//*[@placeholder="Ops ID"]', timeout=20000)
+            await page.wait_for_selector('xpath=//*[@placeholder="Ops ID"]', timeout=15000)
             await page.locator('xpath=//*[@placeholder="Ops ID"]').fill('Ops115950')
             await page.locator('xpath=//*[@placeholder="Senha"]').fill('@Shopee123')
-
             await page.locator('xpath=/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/form/div/div/button').click()
             await page.wait_for_timeout(15000)
-
             try:
                 await page.locator('.ssc-dialog-close').click(timeout=5000)
             except:
                 print("Nenhum pop-up de diálogo foi encontrado.")
                 await page.keyboard.press("Escape")
-
-            # NAVEGAÇÃO
+            
+            # NAVEGAÇÃO E DOWNLOAD
             await page.goto("https://spx.shopee.com.br/#/orderTracking")
-            await page.wait_for_selector("button:has-text('Exportar')", timeout=60000)
-            await page.locator("button:has-text('Exportar')").click()
-
-            await page.wait_for_selector("span:has-text('SOC_Received')", timeout=60000)
-            await page.locator("span:has-text('SOC_Received')").click()
-
-            await page.wait_for_selector(".ssc-dialog-body .ssc-form-item-content", timeout=60000)
-            await page.locator(".ssc-dialog-body .ssc-form-item-content").click()
-
-            await page.wait_for_selector("input[placeholder*='procurar por']", timeout=60000)
+            await page.wait_for_timeout(8000)
+            await page.get_by_role('button', name='Exportar').click()
+            await page.wait_for_timeout(8000)
+            await page.locator('xpath=/html[1]/body[1]/span[6]/div[1]/div[1]/div[1]').click()
+            await page.wait_for_timeout(8000)
+            await page.get_by_role("treeitem", name="SOC_Received", exact=True).click()
+            await page.wait_for_timeout(8000)
+            await page.locator(".ssc-dialog-body > .ssc-form > div:nth-child(9) > .ssc-form-item-content").click()
+            await page.wait_for_timeout(8000)
             await page.get_by_role('textbox', name='procurar por').fill('SoC_SP_Cravinhos')
-
-            await page.wait_for_selector("li:has-text('SoC_SP_Cravinhos')", timeout=60000)
+            await page.wait_for_timeout(8000)
             await page.get_by_role('listitem', name='SoC_SP_Cravinhos').click()
-
-            await page.wait_for_selector("button:has-text('Confirmar')", timeout=60000)
+            await page.wait_for_timeout(8000)
             await page.get_by_role("button", name="Confirmar").click()
-
-            await page.wait_for_timeout(480000)  # espera relatório gerar
-
+            await page.wait_for_timeout(480000)
+            
             # DOWNLOAD
-            await page.wait_for_selector("button:has-text('Baixar')", timeout=60000)
+            # Espera o botão aparecer visível
             async with page.expect_download() as download_info:
-                await page.locator("button:has-text('Baixar')").click()
+            await page.locator("button:has-text('Baixar')").First.click()
 
+            download = await download_info.value
+            
             download = await download_info.value
             download_path = os.path.join(DOWNLOAD_DIR, download.suggested_filename)
             await download.save_as(download_path)
             print(f"Download concluído: {download_path}")
 
-            # PROCESSAMENTO
+
+            # --- PROCESSA E ENVIA PARA GOOGLE SHEETS ---
             renamed_zip_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)
+            
             if renamed_zip_path:
                 final_dataframe = unzip_and_process_data(renamed_zip_path, DOWNLOAD_DIR)
-                await update_google_sheet_with_dataframe(final_dataframe)
+                update_google_sheet_with_dataframe(final_dataframe)
 
         except Exception as e:
             print(f"Erro durante o processo principal: {e}")
         finally:
             await browser.close()
-            temp_extract = os.path.join(DOWNLOAD_DIR, "extracted_files")
-            if os.path.exists(temp_extract):
-                shutil.rmtree(temp_extract)
-                print(f"Pasta temporária '{temp_extract}' limpa.")
+            if os.path.exists(DOWNLOAD_DIR):
+                shutil.rmtree(DOWNLOAD_DIR)
+                print(f"Diretório de trabalho '{DOWNLOAD_DIR}' limpo.")
 
 if __name__ == "__main__":
     asyncio.run(main())
