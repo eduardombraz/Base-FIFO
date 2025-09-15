@@ -1,6 +1,5 @@
 import asyncio
 from playwright.async_api import async_playwright
-import time
 import datetime
 import os
 import shutil
@@ -52,9 +51,16 @@ def unzip_and_process_data(zip_path, extract_to_dir):
 
         print("Iniciando processamento dos dados...")
 
-        # Filtrar colunas desejadas pela posição
+        # Filtrar colunas desejadas pela posição, se existirem
         indices_para_manter = [0, 14, 39, 40, 48]
-        df_final = df_final.iloc[:, indices_para_manter]
+        max_cols = df_final.shape[1]
+        indices_validos = [i for i in indices_para_manter if i < max_cols]
+
+        if indices_validos:
+            df_final = df_final.iloc[:, indices_validos]
+        else:
+            print("⚠ Nenhuma das colunas esperadas foi encontrada.")
+            return None
 
         print("Processamento de dados concluído com sucesso.")
         
@@ -65,7 +71,7 @@ def unzip_and_process_data(zip_path, extract_to_dir):
         print(f"Erro ao descompactar ou processar os dados: {e}")
         return None
 
-def update_google_sheet_with_dataframe(df_to_upload):
+async def update_google_sheet_with_dataframe(df_to_upload):
     """Updates a Google Sheet with the content of a pandas DataFrame."""
     if df_to_upload is None or df_to_upload.empty:
         print("Nenhum dado para enviar ao Google Sheets.")
@@ -97,7 +103,7 @@ def update_google_sheet_with_dataframe(df_to_upload):
         set_with_dataframe(aba, df_to_upload)
         
         print("✅ Dados enviados para o Google Sheets com sucesso!")
-        time.sleep(5)
+        await asyncio.sleep(5)
 
     except Exception as e:
         import traceback
@@ -106,7 +112,10 @@ def update_google_sheet_with_dataframe(df_to_upload):
 async def main():
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"])
+        browser = await p.chromium.launch(
+            headless=True, 
+            args=["--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"]
+        )
         context = await browser.new_context(accept_downloads=True, viewport={"width": 1920, "height": 1080})
         page = await context.new_page()
         try:
@@ -143,31 +152,29 @@ async def main():
             
             # DOWNLOAD
             async with page.expect_download() as download_info:
-            #await page.goto("https://spx.shopee.com.br/#/orderTracking")
-            #await page.wait_for_timeout(8000)
-            #await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[8]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/table[1]/tbody[2]/tr[1]/td[7]/div[1]/div[1]/button[1]/span[1]/span[1]').first.click()
-            await page.get_by_role("button", name="Baixar").first.click()
+                await page.get_by_role("button", name="Baixar").first.click()
             
             download = await download_info.value
             download_path = os.path.join(DOWNLOAD_DIR, download.suggested_filename)
             await download.save_as(download_path)
             print(f"Download concluído: {download_path}")
 
-
             # --- PROCESSA E ENVIA PARA GOOGLE SHEETS ---
             renamed_zip_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)
             
             if renamed_zip_path:
                 final_dataframe = unzip_and_process_data(renamed_zip_path, DOWNLOAD_DIR)
-                update_google_sheet_with_dataframe(final_dataframe)
+                await update_google_sheet_with_dataframe(final_dataframe)
 
         except Exception as e:
             print(f"Erro durante o processo principal: {e}")
         finally:
             await browser.close()
-            if os.path.exists(DOWNLOAD_DIR):
-                shutil.rmtree(DOWNLOAD_DIR)
-                print(f"Diretório de trabalho '{DOWNLOAD_DIR}' limpo.")
+            # Mantém os arquivos .zip, mas limpa temporários
+            temp_extract = os.path.join(DOWNLOAD_DIR, "extracted_files")
+            if os.path.exists(temp_extract):
+                shutil.rmtree(temp_extract)
+                print(f"Pasta temporária '{temp_extract}' limpa.")
 
 if __name__ == "__main__":
     asyncio.run(main())
