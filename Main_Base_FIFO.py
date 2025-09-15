@@ -139,7 +139,7 @@ async def main():
             await page.get_by_role('listitem', name='SoC_SP_Cravinhos').click()
             await page.wait_for_timeout(8000)
             await page.get_by_role("button", name="Confirmar").click()
-            await page.wait_for_timeout(480000)
+            await page.wait_for_timeout(100000)
             
             # DOWNLOAD
             # Espera o botão aparecer visível
