@@ -113,8 +113,8 @@ async def main():
             # LOGIN
             await page.goto("https://spx.shopee.com.br/")
             await page.wait_for_selector('xpath=//*[@placeholder="Ops ID"]', timeout=15000)
-            await page.locator('xpath=//*[@placeholder="Ops ID"]').fill('Ops35673')
-            await page.locator('xpath=//*[@placeholder="Senha"]').fill('@Porpeta2025')
+            await page.locator('xpath=//*[@placeholder="Ops ID"]').fill('Ops115950')
+            await page.locator('xpath=//*[@placeholder="Senha"]').fill('@Shopee123')
             await page.locator('xpath=/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/form/div/div/button').click()
             await page.wait_for_timeout(15000)
             try:
@@ -142,9 +142,9 @@ async def main():
             await page.wait_for_timeout(480000)
             
             # DOWNLOAD
-            #async with page.expect_download() as download_info:
-            await page.goto("https://spx.shopee.com.br/#/orderTracking")
-            await page.wait_for_timeout(8000)
+            async with page.expect_download() as download_info:
+            #await page.goto("https://spx.shopee.com.br/#/orderTracking")
+            #await page.wait_for_timeout(8000)
             #await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[8]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/table[1]/tbody[2]/tr[1]/td[7]/div[1]/div[1]/button[1]/span[1]/span[1]').first.click()
             await page.get_by_role("button", name="Baixar").first.click()
             
