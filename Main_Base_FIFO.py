@@ -142,16 +142,22 @@ async def main():
             # Estratégia de espera aprimorada pós-login  
             print("Aguardando redirecionamento pós-login...")  
             try:  
-                # Esperar por qualquer elemento que indique login bem-sucedido  
-                await page.wait_for_selector('div.ssc-layout-header, text=Sair', timeout=90000)  
+                # Verificação flexível de login bem-sucedido  
+                await asyncio.wait_for(  
+                    asyncio.gather(  
+                        page.wait_for_selector('div.ssc-layout-header', timeout=30000),  
+                        page.wait_for_selector('text="Sair"', timeout=30000),  
+                        return_exceptions=True  
+                    ),  
+                    timeout=90000  
+                )  
                 print("✅ Elemento pós-login encontrado")  
-            except Exception as e:  
-                print(f"❌ Falha na verificação pós-login: {str(e)}")  
-                # Tentar verificar pela URL  
+            except:  
+                # Verificação de fallback pela URL  
                 if "spx.shopee.com.br/#/" in page.url:  
                     print("⚠️ URL de dashboard detectada, continuando...")  
                 else:  
-                    raise  
+                    raise Exception("Falha ao confirmar login: URL incorreta")  
               
             # Fecha pop-up se existir  
             try:  
@@ -168,10 +174,13 @@ async def main():
             print("Verificando carregamento da página...")  
             try:  
                 # Tentar vários elementos possíveis  
-                await page.wait_for_selector(  
-                    'h1:has-text("Rastreamento de Pedidos"), '  
-                    'button:has-text("Exportar"), '  
-                    'div.ssc-layout-content',  
+                await asyncio.wait_for(  
+                    asyncio.gather(  
+                        page.wait_for_selector('h1:has-text("Rastreamento de Pedidos")', timeout=30000),  
+                        page.wait_for_selector('button:has-text("Exportar")', timeout=30000),  
+                        page.wait_for_selector('div.ssc-layout-content', timeout=30000),  
+                        return_exceptions=True  
+                    ),  
                     timeout=60000  
                 )  
                 print("✅ Elemento de confirmação encontrado")  
