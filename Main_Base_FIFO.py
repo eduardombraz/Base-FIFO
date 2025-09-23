@@ -139,11 +139,11 @@ async def main():
             await page.get_by_role('listitem', name='SoC_SP_Cravinhos').click()
             await page.wait_for_timeout(8000)
             await page.get_by_role("button", name="Confirmar").click()
-            await page.wait_for_timeout(360000)
+            await page.wait_for_timeout(600000)
             
             # DOWNLOAD
             async with page.expect_download() as download_info:
-                await page.get_by_role("button", name="Baixar").first.click()
+                await page.get_by_role('button', name='Baixar').first.click()
             
             download = await download_info.value
             download_path = os.path.join(DOWNLOAD_DIR, download.suggested_filename)
