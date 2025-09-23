@@ -124,52 +124,68 @@ async def main():
         )  
         page = await context.new_page()  
         try:  
-            # LOGIN  
-            await page.goto("https://spx.shopee.com.br/", wait_until="networkidle")  
-            await page.wait_for_selector('input[placeholder="Ops ID"]', timeout=30000)  
+            # LOGIN - Abordagem mais robusta  
+            await page.goto("https://spx.shopee.com.br/", wait_until="domcontentloaded")  
+              
+            # Preenche credenciais  
             await page.fill('input[placeholder="Ops ID"]', 'Ops35673')  
             await page.fill('input[placeholder="Senha"]', '@Porpeta2025')  
               
-            # Botão de login com seletor mais confiável  
+            # Clique no botão de login com espera explícita  
             await page.click('button:has-text("Entrar")')  
               
-            # Aguarda elementos pós-login  
-            await page.wait_for_selector('text=Painel de Controle', timeout=60000)  
+            # Espera por qualquer elemento visível após login  
+            await page.wait_for_selector('div.ssc-layout-header', timeout=60000)  
+            print("✅ Login realizado com sucesso")  
+              
+            # Fecha pop-up se existir  
+            try:  
+                await page.locator('.ssc-dialog-close').click(timeout=5000)  
+                print("Pop-up fechado")  
+            except:  
+                print("Nenhum pop-up encontrado")  
               
             # NAVEGAÇÃO PARA A PÁGINA DE EXPORTAÇÃO  
-            await page.goto("https://spx.shopee.com.br/#/orderTracking", wait_until="networkidle")  
+            await page.goto("https://spx.shopee.com.br/#/orderTracking", wait_until="domcontentloaded")  
+            print("Navegou para página de rastreamento")  
               
-            # Botão Exportar com espera explícita  
+            # Botão Exportar  
             await page.wait_for_selector('button:has-text("Exportar")', timeout=30000)  
             await page.click('button:has-text("Exportar")')  
+            print("Clicou em Exportar")  
               
-            # Seleção de filtro - versão mais robusta  
+            # Seleção de filtro  
             await page.wait_for_selector('.ssc-dropdown', timeout=20000)  
             await page.click('.ssc-dropdown >> nth=0')  
+            print("Abriu dropdown de filtros")  
               
             # Seleção de SOC_Received  
             await page.wait_for_selector('text=SOC_Received', timeout=15000)  
             await page.click('text=SOC_Received')  
+            print("Selecionou SOC_Received")  
               
             # Seleção de warehouse  
             await page.wait_for_selector('input[placeholder="procurar por"]', timeout=15000)  
             await page.fill('input[placeholder="procurar por"]', 'SoC_SP_Cravinhos')  
+            print("Digitou nome do warehouse")  
               
-            # Aguarda opção aparecer e clica  
+            # Aguarda e clica na opção  
             await page.wait_for_selector('text=SoC_SP_Cravinhos', timeout=15000)  
             await page.click('text=SoC_SP_Cravinhos')  
+            print("Selecionou warehouse")  
               
             # Confirmação  
             await page.click('button:has-text("Confirmar")')  
+            print("Confirmou seleção")  
               
-            # ESPERA DINÂMICA PARA PROCESSAMENTO (com polling)  
+            # ESPERA DINÂMICA PARA PROCESSAMENTO  
             print("Aguardando processamento do relatório...")  
             start_time = time.time()  
             timeout = 600  # 10 minutos  
               
             while time.time() - start_time < timeout:  
                 download_button = page.locator('button:has-text("Baixar")').first  
-                if await download_button.is_enabled():  
+                if await download_button.is_visible() and await download_button.is_enabled():  
                     print("Botão Baixar habilitado!")  
                     break  
                 await asyncio.sleep(10)  
