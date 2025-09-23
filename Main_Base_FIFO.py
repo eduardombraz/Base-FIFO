@@ -9,6 +9,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials  
 import zipfile  
 from gspread_dataframe import set_with_dataframe  
+import re  
   
 DOWNLOAD_DIR = "/tmp/shopee_automation"  
   
@@ -124,19 +125,36 @@ async def main():
         )  
         page = await context.new_page()  
         try:  
-            # LOGIN - Abordagem mais robusta  
+            # ETAPA DE LOGIN - ABORDAGEM ROBUSTA  
+            print("Iniciando processo de login...")  
             await page.goto("https://spx.shopee.com.br/", wait_until="domcontentloaded")  
               
-            # Preenche credenciais  
+            # Preenche credenciais com verificações  
+            await page.wait_for_selector('input[placeholder="Ops ID"]', timeout=30000)  
             await page.fill('input[placeholder="Ops ID"]', 'Ops35673')  
             await page.fill('input[placeholder="Senha"]', '@Porpeta2025')  
               
-            # Clique no botão de login com espera explícita  
-            await page.click('button:has-text("Entrar")')  
+            # Clique no botão de login com tratamento especial  
+            login_button = page.locator('button:has-text("Entrar")')  
+            await login_button.wait_for(state="visible", timeout=15000)  
+            await login_button.click()  
               
-            # Espera por qualquer elemento visível após login  
-            await page.wait_for_selector('div.ssc-layout-header', timeout=60000)  
-            print("✅ Login realizado com sucesso")  
+            # Estratégia de espera aprimorada pós-login  
+            print("Aguardando redirecionamento pós-login...")  
+            try:  
+                # Opção 1: Esperar por mudança de URL  
+                await page.wait_for_url(re.compile(r".*spx\.shopee\.com\.br/#/.*"), timeout=60000)  
+                print(f"✅ Redirecionado para: {page.url}")  
+                  
+                # Opção 2: Verificar elemento de logout como fallback  
+                try:  
+                    await page.wait_for_selector('text=Sair', timeout=10000)  
+                    print("✅ Elemento 'Sair' encontrado - login confirmado")  
+                except:  
+                    print("⚠️ Elemento 'Sair' não encontrado, mas URL confirmada")  
+            except Exception as e:  
+                print(f"❌ Falha na verificação pós-login: {str(e)}")  
+                raise  
               
             # Fecha pop-up se existir  
             try:  
@@ -146,12 +164,17 @@ async def main():
                 print("Nenhum pop-up encontrado")  
               
             # NAVEGAÇÃO PARA A PÁGINA DE EXPORTAÇÃO  
+            print("Navegando para página de rastreamento...")  
             await page.goto("https://spx.shopee.com.br/#/orderTracking", wait_until="domcontentloaded")  
-            print("Navegou para página de rastreamento")  
+              
+            # Verificação de carregamento da página de rastreamento  
+            await page.wait_for_selector('h1:has-text("Rastreamento de Pedidos")', timeout=30000)  
+            print("✅ Página de rastreamento carregada")  
               
             # Botão Exportar  
-            await page.wait_for_selector('button:has-text("Exportar")', timeout=30000)  
-            await page.click('button:has-text("Exportar")')  
+            export_button = page.locator('button:has-text("Exportar")')  
+            await export_button.wait_for(state="visible", timeout=30000)  
+            await export_button.click()  
             print("Clicou em Exportar")  
               
             # Seleção de filtro  
@@ -165,59 +188,19 @@ async def main():
             print("Selecionou SOC_Received")  
               
             # Seleção de warehouse  
-            await page.wait_for_selector('input[placeholder="procurar por"]', timeout=15000)  
-            await page.fill('input[placeholder="procurar por"]', 'SoC_SP_Cravinhos')  
+            warehouse_input = page.locator('input[placeholder="procurar por"]')  
+            await warehouse_input.wait_for(state="visible", timeout=15000)  
+            await warehouse_input.fill('SoC_SP_Cravinhos')  
             print("Digitou nome do warehouse")  
               
             # Aguarda e clica na opção  
-            await page.wait_for_selector('text=SoC_SP_Cravinhos', timeout=15000)  
-            await page.click('text=SoC_SP_Cravinhos')  
+            warehouse_option = page.locator('text=SoC_SP_Cravinhos')  
+            await warehouse_option.wait_for(state="visible", timeout=15000)  
+            await warehouse_option.click()  
             print("Selecionou warehouse")  
               
             # Confirmação  
-            await page.click('button:has-text("Confirmar")')  
-            print("Confirmou seleção")  
-              
-            # ESPERA DINÂMICA PARA PROCESSAMENTO  
-            print("Aguardando processamento do relatório...")  
-            start_time = time.time()  
-            timeout = 600  # 10 minutos  
-              
-            while time.time() - start_time < timeout:  
-                download_button = page.locator('button:has-text("Baixar")').first  
-                if await download_button.is_visible() and await download_button.is_enabled():  
-                    print("Botão Baixar habilitado!")  
-                    break  
-                await asyncio.sleep(10)  
-                print("Aguardando...")  
-            else:  
-                raise TimeoutError("Tempo excedido aguardando botão Baixar")  
-              
-            # DOWNLOAD  
-            async with page.expect_download() as download_info:  
-                await download_button.click()  
-              
-            download = await download_info.value  
-            download_path = os.path.join(DOWNLOAD_DIR, download.suggested_filename)  
-            await download.save_as(download_path)  
-            print(f"Download concluído: {download_path}")  
-  
-            # --- PROCESSA E ENVIA PARA GOOGLE SHEETS ---  
-            renamed_zip_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)  
-              
-            if renamed_zip_path:  
-                final_dataframe = unzip_and_process_data(renamed_zip_path, DOWNLOAD_DIR)  
-                update_google_sheet_with_dataframe(final_dataframe)  
-  
-        except Exception as e:  
-            print(f"❌ Erro durante o processo principal: {str(e)}")  
-            import traceback  
-            print(traceback.format_exc())  
-        finally:  
-            await browser.close()  
-            if os.path.exists(DOWNLOAD_DIR):  
-                shutil.rmtree(DOWNLOAD_DIR)  
-                print(f"Diretório de trabalho '{DOWNLOAD_DIR}' limpo.")  
-  
-if __name__ == "__main__":  
-    asyncio.run(main())  
+            confirm_button = page.locator('button:has-text("Confirmar")')  
+            await confirm_button.wait_for(state="visible", timeout=15000)  
+            await confirm_button.click()  
+            print("Confirm
