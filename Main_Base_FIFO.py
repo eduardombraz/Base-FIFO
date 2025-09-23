@@ -140,13 +140,13 @@ async def main():
             await page.wait_for_timeout(8000)
             await page.get_by_role("button", name="Confirmar").click()
             await page.wait_for_timeout(540000)
+            await page.goto("https://spx.shopee.com.br/#/orderTracking")
             
             # DOWNLOAD
             async with page.expect_download() as download_info:
-                await page.goto("https://spx.shopee.com.br/#/orderTracking")
                 #await page.locator('xpath=/html[1]/body[1]/div[1]/div[1]/div[2]/div[2]/div[1]/div[1]/div[1]/div[1]/div[8]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/table[1]/tbody[2]/tr[1]/td[7]/div[1]/div[1]/button[1]/span[1]/span[1]').click()
                 #await page.get_by_role('button', name='Baixar').first.click()
-                await page.get_by_role('button',  name: 'Baixar' ).nth(0).click()
+                await page.get_by_role('button', name: 'Baixar').nth(0).click()
             
             download = await download_info.value
             download_path = os.path.join(DOWNLOAD_DIR, download.suggested_filename)
