@@ -29,9 +29,7 @@ print(f"Erro ao renomear o arquivo: {e}")
 return None
 
 def unzip_and_process_data(zip_path, extract_to_dir):
-"""
-Unzips a file, merges all CSVs, and processes the data according to the specified logic.
-"""
+"""Unzips a file, merges all CSVs, and processes the data."""
 try:
 unzip_folder = os.path.join(extract_to_dir, "extracted_files")
 os.makedirs(unzip_folder, exist_ok=True)
@@ -41,7 +39,6 @@ os.makedirs(unzip_folder, exist_ok=True)
     print(f"Arquivo '{os.path.basename(zip_path)}' descompactado.")  
 
     csv_files = [os.path.join(unzip_folder, f) for f in os.listdir(unzip_folder) if f.lower().endswith('.csv')]  
-      
     if not csv_files:  
         print("Nenhum arquivo CSV encontrado no ZIP.")  
         shutil.rmtree(unzip_folder)  
@@ -52,15 +49,11 @@ os.makedirs(unzip_folder, exist_ok=True)
     df_final = pd.concat(all_dfs, ignore_index=True)  
 
     print("Iniciando processamento dos dados...")  
-
-    # Filtrar colunas desejadas pela posição  
     indices_para_manter = [0, 14, 39, 40, 48]  
     df_final = df_final.iloc[:, indices_para_manter]  
-
     print("Processamento de dados concluído com sucesso.")  
-      
-    shutil.rmtree(unzip_folder)  
 
+    shutil.rmtree(unzip_folder)  
     return df_final  
 except Exception as e:  
     print(f"Erro ao descompactar ou processar os dados: {e}")  
@@ -70,33 +63,28 @@ def update_google_sheet_with_dataframe(df_to_upload):
 if df_to_upload is None or df_to_upload.empty:
 print("Nenhum dado para enviar ao Google Sheets.")
 return
-
-try:  
-    print("Enviando dados processados para o Google Sheets...")  
-
-    df_to_upload = df_to_upload.fillna("").astype(str)  
+try:
+print("Enviando dados processados para o Google Sheets...")
+df_to_upload = df_to_upload.fillna("").astype(str)
 
     scope = [  
         "https://spreadsheets.google.com/feeds",  
-        'https://www.googleapis.com/auth/spreadsheets',  
-        "https://www.googleapis.com/auth/drive"  
+        "https://www.googleapis.com/auth/spreadsheets",  
+        "https://www.googleapis.com/auth/drive",  
     ]  
     creds = ServiceAccountCredentials.from_json_keyfile_name("hxh.json", scope)  
     client = gspread.authorize(creds)  
-      
-    planilha = client.open("FIFO INBOUND SP5")  
 
+    planilha = client.open("FIFO INBOUND SP5")  
     try:  
         aba = planilha.worksheet("Base")  
     except gspread.exceptions.WorksheetNotFound:  
         aba = planilha.add_worksheet(title="Base", rows="1000", cols="20")  
-      
+
     aba.clear()  
     set_with_dataframe(aba, df_to_upload)  
-      
     print("✅ Dados enviados para o Google Sheets com sucesso!")  
     time.sleep(5)  
-
 except Exception as e:  
     import traceback  
     print(f"❌ Erro ao enviar para o Google Sheets:\n{traceback.format_exc()}")  
@@ -105,7 +93,7 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 async with async_playwright() as p:
 browser = await p.chromium.launch(
 headless=True,
-args=["--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"]
+args=["--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080"],
 )
 context = await browser.new_context(accept_downloads=True, viewport={"width": 1920, "height": 1080})
 page = await context.new_page()
@@ -139,7 +127,7 @@ await page.locator('xpath=/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/for
         export_modal = page.locator(".ssc-dialog").filter(has_text=re.compile("Export", re.I)).last  
         await export_modal.wait_for(state="visible", timeout=120000)  
 
-        # Abrir seletor de tipo  
+        # Abrir seletor de tipo (ajuste se necessário)  
         await page.locator('xpath=/html[1]/body[1]/span[6]/div[1]/div[1]/div[1]').click()  
 
         # Selecionar SOC_Received  
@@ -156,7 +144,7 @@ await page.locator('xpath=/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/for
         # Confirmar  
         await page.get_by_role("button", name=re.compile("Confirmar", re.I)).click()  
 
-        # Esperar backend carregar/gerar  
+        # Esperar backend  
         try:  
             await page.locator(".ssc-loading, .spinner").wait_for(state="hidden", timeout=180000)  
         except:  
@@ -166,7 +154,7 @@ await page.locator('xpath=/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/for
         except:  
             pass  
 
-        # Botão Baixar dentro do modal  
+        # Botão Baixar no modal  
         baixar_btn = export_modal.get_by_role("button", name=re.compile("Baixar|Download|Exportar arquivo", re.I))  
         await baixar_btn.wait_for(state="visible", timeout=180000)  
 
@@ -174,7 +162,7 @@ await page.locator('xpath=/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/for
         await page.wait_for_function(  
             "(btn) => !!btn && !btn.hasAttribute('disabled') && !btn.classList.contains('is-disabled')",  
             arg=btn_handle,  
-            timeout=180000  
+            timeout=180000,  
         )  
 
         disabled_attr = await baixar_btn.get_attribute("disabled")  
