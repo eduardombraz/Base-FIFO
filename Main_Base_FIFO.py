@@ -142,11 +142,11 @@ async def main():
             # Estratégia de espera aprimorada pós-login  
             print("Aguardando redirecionamento pós-login...")  
             try:  
-                # Opção 1: Esperar por mudança de URL  
+                # Esperar por mudança de URL  
                 await page.wait_for_url(re.compile(r".*spx\.shopee\.com\.br/#/.*"), timeout=60000)  
                 print(f"✅ Redirecionado para: {page.url}")  
                   
-                # Opção 2: Verificar elemento de logout como fallback  
+                # Verificar elemento de logout como fallback  
                 try:  
                     await page.wait_for_selector('text=Sair', timeout=10000)  
                     print("✅ Elemento 'Sair' encontrado - login confirmado")  
@@ -167,9 +167,24 @@ async def main():
             print("Navegando para página de rastreamento...")  
             await page.goto("https://spx.shopee.com.br/#/orderTracking", wait_until="domcontentloaded")  
               
-            # Verificação de carregamento da página de rastreamento  
-            await page.wait_for_selector('h1:has-text("Rastreamento de Pedidos")', timeout=30000)  
-            print("✅ Página de rastreamento carregada")  
+            # VERIFICAÇÃO ROBUSTA DA PÁGINA DE RASTREAMENTO  
+            print("Verificando carregamento da página de rastreamento...")  
+            try:  
+                # Elemento estrutural que sempre está presente na página  
+                await page.wait_for_selector('.ssc-layout-content', timeout=30000)  
+                print("✅ Estrutura principal da página carregada")  
+                  
+                # Verificar se o botão Exportar está presente  
+                export_button = page.locator('button:has-text("Exportar")')  
+                if await export_button.is_visible():  
+                    print("✅ Botão 'Exportar' visível")  
+                else:  
+                    print("⚠️ Botão 'Exportar' não visível, tentando recarregar...")  
+                    await page.reload(wait_until="domcontentloaded")  
+                    await page.wait_for_selector('.ssc-layout-content', timeout=30000)  
+            except Exception as e:  
+                print(f"❌ Falha ao carregar página de rastreamento: {str(e)}")  
+                raise  
               
             # Botão Exportar  
             export_button = page.locator('button:has-text("Exportar")')  
@@ -203,7 +218,7 @@ async def main():
             confirm_button = page.locator('button:has-text("Confirmar")')  
             await confirm_button.wait_for(state="visible", timeout=15000)  
             await confirm_button.click()  
-            print("Confirmou seleção")  # CORREÇÃO: STRING COMPLETA  
+            print("Confirmou seleção")  
               
             # ESPERA DINÂMICA PARA PROCESSAMENTO  
             print("Aguardando processamento do relatório...")  
@@ -247,4 +262,4 @@ async def main():
                 print(f"Diretório de trabalho '{DOWNLOAD_DIR}' limpo.")  
   
 if __name__ == "__main__":  
-    asyncio.run(main()) 
+    asyncio.run(main())
