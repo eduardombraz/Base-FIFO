@@ -113,8 +113,8 @@ async def main():
             # LOGIN
             await page.goto("https://spx.shopee.com.br/")
             await page.wait_for_selector('xpath=//*[@placeholder="Ops ID"]', timeout=15000)
-            await page.locator('xpath=//*[@placeholder="Ops ID"]').fill('Ops115950')
-            await page.locator('xpath=//*[@placeholder="Senha"]').fill('@Shopee123')
+            await page.locator('xpath=//*[@placeholder="Ops ID"]').fill('Ops35673')
+            await page.locator('xpath=//*[@placeholder="Senha"]').fill('@Porpeta2025')
             await page.locator('xpath=/html/body/div[1]/div/div[2]/div/div/div[1]/div[3]/form/div/div/button').click()
             await page.wait_for_timeout(15000)
             try:
@@ -139,21 +139,16 @@ async def main():
             await page.get_by_role('listitem', name='SoC_SP_Cravinhos').click()
             await page.wait_for_timeout(8000)
             await page.get_by_role("button", name="Confirmar").click()
-            await page.wait_for_timeout(600000)
+            await page.wait_for_timeout(360000)
             
             # DOWNLOAD
-            # Espera o botão aparecer visível
             async with page.expect_download() as download_info:
                 await page.get_by_role("button", name="Baixar").first.click()
+            
             download = await download_info.value
             download_path = os.path.join(DOWNLOAD_DIR, download.suggested_filename)
             await download.save_as(download_path)
             print(f"Download concluído: {download_path}")
-
-            renamed_zip_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)
-            if renamed_zip_path:
-                final_dataframe = unzip_and_process_data(renamed_zip_path, DOWNLOAD_DIR)
-                update_google_sheet_with_dataframe(final_dataframe)
 
             # --- PROCESSA E ENVIA PARA GOOGLE SHEETS ---
             renamed_zip_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)
