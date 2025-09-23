@@ -140,7 +140,7 @@ async def main():
             await page.wait_for_timeout(8000)
             await page.get_by_role("button", name="Confirmar").click()
             await page.wait_for_timeout(540000)
-            #await page.goto("https://spx.shopee.com.br/#/orderTracking")
+            await page.goto("https://spx.shopee.com.br/#/orderTracking")
             
             # DOWNLOAD
             async with page.expect_download() as download_info:
