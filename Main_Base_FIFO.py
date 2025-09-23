@@ -203,4 +203,48 @@ async def main():
             confirm_button = page.locator('button:has-text("Confirmar")')  
             await confirm_button.wait_for(state="visible", timeout=15000)  
             await confirm_button.click()  
-            print("Confirm
+            print("Confirmou seleção")  # CORREÇÃO: STRING COMPLETA  
+              
+            # ESPERA DINÂMICA PARA PROCESSAMENTO  
+            print("Aguardando processamento do relatório...")  
+            start_time = time.time()  
+            timeout = 600  # 10 minutos  
+              
+            while time.time() - start_time < timeout:  
+                download_button = page.locator('button:has-text("Baixar")').first  
+                if await download_button.is_visible() and await download_button.is_enabled():  
+                    print("Botão Baixar habilitado!")  
+                    break  
+                await asyncio.sleep(10)  
+                print("Aguardando...")  
+            else:  
+                raise TimeoutError("Tempo excedido aguardando botão Baixar")  
+              
+            # DOWNLOAD  
+            async with page.expect_download() as download_info:  
+                await download_button.click()  
+              
+            download = await download_info.value  
+            download_path = os.path.join(DOWNLOAD_DIR, download.suggested_filename)  
+            await download.save_as(download_path)  
+            print(f"Download concluído: {download_path}")  
+  
+            # --- PROCESSA E ENVIA PARA GOOGLE SHEETS ---  
+            renamed_zip_path = rename_downloaded_file(DOWNLOAD_DIR, download_path)  
+              
+            if renamed_zip_path:  
+                final_dataframe = unzip_and_process_data(renamed_zip_path, DOWNLOAD_DIR)  
+                update_google_sheet_with_dataframe(final_dataframe)  
+  
+        except Exception as e:  
+            print(f"❌ Erro durante o processo principal: {str(e)}")  
+            import traceback  
+            print(traceback.format_exc())  
+        finally:  
+            await browser.close()  
+            if os.path.exists(DOWNLOAD_DIR):  
+                shutil.rmtree(DOWNLOAD_DIR)  
+                print(f"Diretório de trabalho '{DOWNLOAD_DIR}' limpo.")  
+  
+if __name__ == "__main__":  
+    asyncio.run(main()) 
