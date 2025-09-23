@@ -130,93 +130,92 @@ async def main():
             await page.goto("https://spx.shopee.com.br/", wait_until="domcontentloaded")  
               
             # Preenche credenciais com verificações  
-            await page.wait_for_selector('input[placeholder="Ops ID"]', timeout=30000)  
+            await page.wait_for_selector('input[placeholder="Ops ID"]', timeout=60000)  
             await page.fill('input[placeholder="Ops ID"]', 'Ops35673')  
             await page.fill('input[placeholder="Senha"]', '@Porpeta2025')  
               
             # Clique no botão de login com tratamento especial  
             login_button = page.locator('button:has-text("Entrar")')  
-            await login_button.wait_for(state="visible", timeout=15000)  
+            await login_button.wait_for(state="visible", timeout=30000)  
             await login_button.click()  
               
             # Estratégia de espera aprimorada pós-login  
             print("Aguardando redirecionamento pós-login...")  
             try:  
-                # Esperar por mudança de URL  
-                await page.wait_for_url(re.compile(r".*spx\.shopee\.com\.br/#/.*"), timeout=60000)  
-                print(f"✅ Redirecionado para: {page.url}")  
-                  
-                # Verificar elemento de logout como fallback  
-                try:  
-                    await page.wait_for_selector('text=Sair', timeout=10000)  
-                    print("✅ Elemento 'Sair' encontrado - login confirmado")  
-                except:  
-                    print("⚠️ Elemento 'Sair' não encontrado, mas URL confirmada")  
+                # Esperar por qualquer elemento que indique login bem-sucedido  
+                await page.wait_for_selector('div.ssc-layout-header, text=Sair', timeout=90000)  
+                print("✅ Elemento pós-login encontrado")  
             except Exception as e:  
                 print(f"❌ Falha na verificação pós-login: {str(e)}")  
-                raise  
+                # Tentar verificar pela URL  
+                if "spx.shopee.com.br/#/" in page.url:  
+                    print("⚠️ URL de dashboard detectada, continuando...")  
+                else:  
+                    raise  
               
             # Fecha pop-up se existir  
             try:  
-                await page.locator('.ssc-dialog-close').click(timeout=5000)  
+                await page.locator('.ssc-dialog-close').click(timeout=10000)  
                 print("Pop-up fechado")  
             except:  
                 print("Nenhum pop-up encontrado")  
               
             # NAVEGAÇÃO PARA A PÁGINA DE EXPORTAÇÃO  
             print("Navegando para página de rastreamento...")  
-            await page.goto("https://spx.shopee.com.br/#/orderTracking", wait_until="domcontentloaded")  
+            await page.goto("https://spx.shopee.com.br/#/orderTracking", wait_until="networkidle", timeout=120000)  
               
-            # VERIFICAÇÃO ROBUSTA DA PÁGINA DE RASTREAMENTO  
-            print("Verificando carregamento da página de rastreamento...")  
+            # VERIFICAÇÃO FLEXÍVEL DA PÁGINA  
+            print("Verificando carregamento da página...")  
             try:  
-                # Elemento estrutural que sempre está presente na página  
-                await page.wait_for_selector('.ssc-layout-content', timeout=30000)  
-                print("✅ Estrutura principal da página carregada")  
-                  
-                # Verificar se o botão Exportar está presente  
-                export_button = page.locator('button:has-text("Exportar")')  
-                if await export_button.is_visible():  
-                    print("✅ Botão 'Exportar' visível")  
+                # Tentar vários elementos possíveis  
+                await page.wait_for_selector(  
+                    'h1:has-text("Rastreamento de Pedidos"), '  
+                    'button:has-text("Exportar"), '  
+                    'div.ssc-layout-content',  
+                    timeout=60000  
+                )  
+                print("✅ Elemento de confirmação encontrado")  
+            except:  
+                print("⚠️ Elementos primários não encontrados, tentando verificar por qualquer conteúdo...")  
+                # Verificação de fallback  
+                content_selector = "body"  
+                await page.wait_for_selector(content_selector, timeout=30000)  
+                if await page.inner_html(content_selector):  
+                    print("✅ Conteúdo HTML detectado, continuando...")  
                 else:  
-                    print("⚠️ Botão 'Exportar' não visível, tentando recarregar...")  
-                    await page.reload(wait_until="domcontentloaded")  
-                    await page.wait_for_selector('.ssc-layout-content', timeout=30000)  
-            except Exception as e:  
-                print(f"❌ Falha ao carregar página de rastreamento: {str(e)}")  
-                raise  
+                    raise Exception("Falha crítica: página não carregou conteúdo")  
               
             # Botão Exportar  
             export_button = page.locator('button:has-text("Exportar")')  
-            await export_button.wait_for(state="visible", timeout=30000)  
+            await export_button.wait_for(state="visible", timeout=60000)  
             await export_button.click()  
             print("Clicou em Exportar")  
               
             # Seleção de filtro  
-            await page.wait_for_selector('.ssc-dropdown', timeout=20000)  
+            await page.wait_for_selector('.ssc-dropdown', timeout=30000)  
             await page.click('.ssc-dropdown >> nth=0')  
             print("Abriu dropdown de filtros")  
               
             # Seleção de SOC_Received  
-            await page.wait_for_selector('text=SOC_Received', timeout=15000)  
+            await page.wait_for_selector('text=SOC_Received', timeout=30000)  
             await page.click('text=SOC_Received')  
             print("Selecionou SOC_Received")  
               
             # Seleção de warehouse  
             warehouse_input = page.locator('input[placeholder="procurar por"]')  
-            await warehouse_input.wait_for(state="visible", timeout=15000)  
+            await warehouse_input.wait_for(state="visible", timeout=30000)  
             await warehouse_input.fill('SoC_SP_Cravinhos')  
             print("Digitou nome do warehouse")  
               
             # Aguarda e clica na opção  
             warehouse_option = page.locator('text=SoC_SP_Cravinhos')  
-            await warehouse_option.wait_for(state="visible", timeout=15000)  
+            await warehouse_option.wait_for(state="visible", timeout=30000)  
             await warehouse_option.click()  
             print("Selecionou warehouse")  
               
             # Confirmação  
             confirm_button = page.locator('button:has-text("Confirmar")')  
-            await confirm_button.wait_for(state="visible", timeout=15000)  
+            await confirm_button.wait_for(state="visible", timeout=30000)  
             await confirm_button.click()  
             print("Confirmou seleção")  
               
@@ -262,4 +261,4 @@ async def main():
                 print(f"Diretório de trabalho '{DOWNLOAD_DIR}' limpo.")  
   
 if __name__ == "__main__":  
-    asyncio.run(main())
+    asyncio.run(main()) 
